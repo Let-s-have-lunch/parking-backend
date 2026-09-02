@@ -51,12 +51,12 @@ public class ParkingLotController {
     @GetMapping("/{id}")
     public Mono<ResponseEntity<Map<String, Object>>> getParkingLotDetail(
             @PathVariable Long id,
-            Mono<Principal> principalMono
+            Principal principal
     ) {
-        return principalMono
-                .map(Principal::getName)
-                .defaultIfEmpty("")      // 비로그인 시 빈 문자열 처리
-                .flatMap(email -> parkingLotSearchService.getParkingLotDetail(id, email.isEmpty() ? null : email))
+        String email = (principal != null) ? principal.getName() : null;
+
+
+        return parkingLotSearchService.getParkingLotDetail(id, email)
                 .map(lot -> {
                     Map<String, Object> response = new HashMap<>();
                     response.put("success", true);
