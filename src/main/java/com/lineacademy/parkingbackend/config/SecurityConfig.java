@@ -4,21 +4,22 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
-import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
-import org.springframework.security.config.web.server.SecurityWebFiltersOrder;
-import org.springframework.security.config.web.server.ServerHttpSecurity;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.web.server.SecurityWebFilterChain;
+import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
-import org.springframework.web.cors.reactive.CorsConfigurationSource;
-import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.Arrays;
 import java.util.List;
 
 @Configuration
-@EnableWebFluxSecurity
+@EnableWebSecurity
 public class SecurityConfig {
 
     @Bean
@@ -27,27 +28,27 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityWebFilterChain springSecurityFilterChain(ServerHttpSecurity http, JwtAuthenticationWebFilter jwtAuthenticationWebFilter) {
-        return http
-                .csrf(ServerHttpSecurity.CsrfSpec::disable)
-                .formLogin(ServerHttpSecurity.FormLoginSpec::disable)
-                .httpBasic(ServerHttpSecurity.HttpBasicSpec::disable)
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        http
+                .csrf(AbstractHttpConfigurer::disable)
+                .formLogin(AbstractHttpConfigurer::disable)
+                .httpBasic(AbstractHttpConfigurer::disable)
                 .cors(Customizer.withDefaults())
-                .authorizeExchange(exchanges -> exchanges
-                        // 인증 없이 접근 가능한 엔드포인트
-                        .pathMatchers(HttpMethod.POST, "/auth/login", "/auth/signup").permitAll()
-                        .pathMatchers(HttpMethod.GET, "/parking-lots", "/parking-lots/**").permitAll()
-                        // 나머지는 인증 필요
-                        .anyExchange().authenticated()
-                )
-                .addFilterAt(jwtAuthenticationWebFilter, SecurityWebFiltersOrder.AUTHENTICATION)
-                .build();
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.POST, "/auth/login", "/auth/signup").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/parking-lots", "/parking-lots/**").permitAll()
+                        .requestMatchers("/error").permitAll()
+                        .anyRequest().permitAll()
+                );
+
+        return http.build();
     }
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("http://localhost:8081"));
+        configuration.setAllowedOrigins(List.of("http://localhost:8081", "http://localhost:3000", "http://localhost:5173"));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
