@@ -6,6 +6,7 @@ import com.lineacademy.parkingbackend.dto.user.response.AuthResponse;
 import com.lineacademy.parkingbackend.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -14,6 +15,7 @@ import reactor.core.publisher.Mono;
 import java.util.HashMap;
 import java.util.Map;
 
+@Slf4j
 @RestController
 @RequestMapping("/auth")
 @RequiredArgsConstructor
@@ -24,9 +26,8 @@ public class AuthController {
      * 회원가입 API
      */
     @PostMapping("/signup")
-    public Mono<ResponseEntity<Map<String, Object>>> signup(@Valid @RequestBody Mono<SignUpRequest> requestMono) {
-        return requestMono
-                .flatMap(request -> authService.signup(request.getEmail(), request.getPassword(), request.getNickname()))
+    public Mono<ResponseEntity<Map<String, Object>>> signup(@Valid @RequestBody SignUpRequest request) { // 💡 Mono 제거
+        return authService.signup(request.getEmail(), request.getPassword(), request.getNickname())
                 .map(user -> {
                     Map<String, Object> response = new HashMap<>();
                     response.put("success", true);
@@ -34,7 +35,8 @@ public class AuthController {
 
                     return ResponseEntity.status(HttpStatus.CREATED).body(response);
                 })
-                .onErrorResume(IllegalArgumentException.class, e -> {
+                .onErrorResume(e -> { // 💡 모든 예외를 잡아서 원인 메시지를 반환하도록 변경
+                    log.error("회원가입 실패 원인: ", e);
                     Map<String, Object> errorResponse = new HashMap<>();
                     errorResponse.put("success", false);
                     errorResponse.put("message", e.getMessage());
@@ -47,9 +49,8 @@ public class AuthController {
      * 로그인 API
      */
     @PostMapping("/login")
-    public Mono<ResponseEntity<Map<String, Object>>> login(@Valid @RequestBody Mono<LoginRequest> requestMono) {
-        return requestMono
-                .flatMap(request -> authService.login(request.getEmail(), request.getPassword()))
+    public Mono<ResponseEntity<Map<String, Object>>> login(@Valid @RequestBody LoginRequest request) { // 💡 Mono 제거
+        return authService.login(request.getEmail(), request.getPassword())
                 .map(tuple -> {
                     String token = tuple.getT1();
                     AuthResponse authResponse = AuthResponse.from(tuple.getT2());
@@ -62,10 +63,10 @@ public class AuthController {
                     response.put("success", true);
                     response.put("data", data);
 
-                    return ResponseEntity.ok()
-                            .body(response);
+                    return ResponseEntity.ok().body(response);
                 })
-                .onErrorResume(IllegalArgumentException.class, e -> {
+                .onErrorResume(e -> { // 💡 모든 예외를 잡아서 원인 메시지를 반환하도록 변경
+                    log.error("로그인 실패 원인: ", e);
                     Map<String, Object> errorResponse = new HashMap<>();
                     errorResponse.put("success", false);
                     errorResponse.put("message", e.getMessage());
