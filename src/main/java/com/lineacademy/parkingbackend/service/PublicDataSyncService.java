@@ -1,9 +1,9 @@
 package com.lineacademy.parkingbackend.service;
 
 import com.lineacademy.parkingbackend.domain.entity.ParkingLot;
-import com.lineacademy.parkingbackend.dto.parking.PublicParkingDataDto;
-import com.lineacademy.parkingbackend.dto.parking.response.PublicDataResponseWrapper;
 import com.lineacademy.parkingbackend.repository.ParkingLotRepository;
+import com.lineacademy.parkingbackend.dto.parking.PublicDataResponseWrapper;
+import com.lineacademy.parkingbackend.dto.parking.PublicParkingDataDto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -54,8 +54,8 @@ public class PublicDataSyncService {
                         return Flux.empty();
                     }
 
-                    List<PublicParkingDataDto> firstPageItems = firstPageWrapper.getResponse().getBody().getItems();
-                    int totalCount = firstPageWrapper.getResponse().getBody().getTotalCount();
+                    List<PublicParkingDataDto> firstPageItems = firstPageWrapper.getBody().getItems().getItem();
+                    int totalCount = firstPageWrapper.getBody().getTotalCount();
 
                     int totalPages = (int) Math.ceil((double) totalCount / numOfRows);
                     log.info("총 주차장 데이터: {}건, 총 페이지 수: {}", totalCount, totalPages);
@@ -70,8 +70,7 @@ public class PublicDataSyncService {
                     Flux<PublicParkingDataDto> remainingPagesFlux = Flux.range(2, totalPages - 1)
                             .flatMap(pageNo -> fetchPage(pageNo, numOfRows)
                                             .filter(this::isValidResponse)
-                                            // 💡 getResponse() 거치도록 수정 및 .getItem() 제거
-                                            .map(wrapper -> wrapper.getResponse().getBody().getItems())
+                                            .map(wrapper -> wrapper.getBody().getItems().getItem())
                                             .flatMapMany(Flux::fromIterable)
                                             .filter(this::hasValidCoordinates),
                                     5
@@ -81,6 +80,7 @@ public class PublicDataSyncService {
                 });
     }
 
+    // 불량 데이터 필터링
     private boolean hasValidCoordinates(PublicParkingDataDto dto) {
         return dto.getLatitude() != null && dto.getLongitude() != null
                 && dto.getLatitude().doubleValue() > 0
@@ -102,11 +102,10 @@ public class PublicDataSyncService {
 
     private boolean isValidResponse(PublicDataResponseWrapper wrapper) {
         return wrapper != null
-                && wrapper.getResponse() != null
-                && wrapper.getResponse().getHeader() != null
-                && wrapper.getResponse().getBody() != null
-                && "00".equals(wrapper.getResponse().getHeader().getResultCode())
-                && wrapper.getResponse().getBody().getItems() != null;
+                && wrapper.getHeader() != null
+                && wrapper.getBody() != null
+                && "00".equals(wrapper.getHeader().getResultCode())
+                && wrapper.getBody().getItems() != null;
     }
 
     @Transactional
@@ -114,10 +113,12 @@ public class PublicDataSyncService {
         return Mono.fromCallable(() -> {
                     return parkingLotRepository.findByParkingLotNo(dto.getPrkplceNo())
                             .map(existing -> {
+                                // 💡 1. 기존 데이터가 있으면 전체 필드 업데이트
                                 existing.updateInfo(dto);
                                 return parkingLotRepository.save(existing);
                             })
                             .orElseGet(() -> {
+                                // 💡 2. 새 데이터면 모든 필드를 넣어서 빌드
                                 ParkingLot newLot = ParkingLot.builder()
                                         .parkingLotNo(dto.getPrkplceNo())
                                         .name(dto.getPrkplceNm())
@@ -125,7 +126,7 @@ public class PublicDataSyncService {
                                         .parkingLotType(dto.getPrkplceType())
                                         .roadAddress(dto.getRdnmadr())
                                         .landAddress(dto.getLnmadr())
-                                        .capacity(dto.getPrkcmprt())
+                                        .capacity(dto.getPrkcmprt()) // 수정됨
                                         .feedingSe(dto.getFeedingSe())
                                         .enforceSe(dto.getEnforceSe())
                                         .operDay(dto.getOperDay())
@@ -153,6 +154,7 @@ public class PublicDataSyncService {
                                         .referenceDate(dto.getReferenceDate())
                                         .insttCode(dto.getInsttCode())
                                         .insttNm(dto.getInsttNm())
+                                        // 💡 실시간 정보 연동을 위한 기본값 (추후 확장 시 사용)
                                         .realtimeParkingCode(null)
                                         .isRealtimeSupported(false)
                                         .build();
