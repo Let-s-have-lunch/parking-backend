@@ -25,7 +25,7 @@ import java.util.List;
 @EnableWebSecurity
 @RequiredArgsConstructor // 💡 3. 추가
 public class SecurityConfig {
-    @Value("{cors.allowed-origins}")
+    @Value("${cors.allowed-origins}")
     private String[] allowedOrigins;
 
     private final JwtAuthenticationWebFilter jwtAuthenticationWebFilter; // 💡 4. 필터 주입
