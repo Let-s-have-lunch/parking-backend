@@ -46,6 +46,7 @@ public class SecurityConfig {
                 // 💡 5. 이 줄을 추가합니다 (로그인 인증 체크 전에 우리 필터를 먼저 거치도록 설정)
                 .addFilterBefore(jwtAuthenticationWebFilter, UsernamePasswordAuthenticationFilter.class)
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/auth/login", "/auth/signup").permitAll()
                         .requestMatchers(HttpMethod.GET, "/parking-lots", "/parking-lots/**").permitAll()
                         .requestMatchers("/error").permitAll()
@@ -58,7 +59,7 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of(allowedOrigins));
+        configuration.setAllowedOriginPatterns(Arrays.asList(allowedOrigins));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
